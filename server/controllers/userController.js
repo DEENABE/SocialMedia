@@ -6,15 +6,62 @@ import User from "../models/User.js"
 import fs from 'fs'
 import { clerkClient } from "@clerk/express";
 
+const buildUsernameFromClerkUser = (clerkUser, fallbackId) => {
+    const candidates = [
+        clerkUser?.username,
+        clerkUser?.primaryEmailAddress?.emailAddress?.split('@')[0],
+        clerkUser?.emailAddresses?.[0]?.emailAddress?.split('@')[0],
+        `user_${fallbackId}`,
+    ].filter(Boolean)
+
+    return candidates[0].toLowerCase().replace(/[^a-z0-9_]/g, '_')
+}
+
+const ensureUserExists = async (userId) => {
+    let user = await User.findById(userId)
+
+    if (user) {
+        return user
+    }
+
+    const clerkUser = await clerkClient.users.getUser(userId)
+    const email =
+        clerkUser?.primaryEmailAddress?.emailAddress ||
+        clerkUser?.emailAddresses?.[0]?.emailAddress
+
+    if (!email) {
+        throw new Error('Unable to read user email from Clerk')
+    }
+
+    const baseUsername = buildUsernameFromClerkUser(clerkUser, userId)
+    let username = baseUsername
+    let suffix = 1
+
+    while (await User.findOne({ username })) {
+        username = `${baseUsername}_${suffix}`
+        suffix += 1
+    }
+
+    user = await User.create({
+        _id: userId,
+        email,
+        full_name:
+            [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(' ') ||
+            clerkUser?.fullName ||
+            baseUsername,
+        username,
+        profile_picture: clerkUser?.imageUrl || '',
+    })
+
+    return user
+}
+
 
 // Get User Data using userId
 export const getUserData = async (req, res) => {
     try {
         const { userId } = req.auth()
-        const user = await User.findById(userId)
-        if(!user){
-            return res.json({success: false, message: "User not found"})
-        }
+        const user = await ensureUserExists(userId)
         res.json({success: true, user})
     } catch (error) {
         console.log(error);
@@ -223,7 +270,8 @@ export const sendConnectionRequest = async (req, res) => {
 export const getUserConnections = async (req, res) => {
     try {
         const {userId} = req.auth()
-        const user = await User.findById(userId).populate('connections followers following')
+        const user = await ensureUserExists(userId)
+        await user.populate('connections followers following')
 
         const connections = user.connections
         const followers = user.followers

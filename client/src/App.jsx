@@ -28,13 +28,17 @@ const App = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (user) {
-        const token = await getToken()
-        dispatch(fetchUser(token))
-        dispatch(fetchConnections(token))
+        try {
+          const token = await getToken()
+          await dispatch(fetchUser(token))
+          await dispatch(fetchConnections(token))
+        } catch (error) {
+          console.error('Failed to bootstrap app data', error)
+        }
       }
     }
     fetchData()
-  }, [user])
+  }, [user, getToken, dispatch])
 
   useEffect(() => {
     pathnameRef.current = pathname
