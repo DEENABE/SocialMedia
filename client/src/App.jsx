@@ -16,6 +16,7 @@ import { fetchUser } from './features/user/userSlice'
 import { fetchConnections } from './features/connections/connectionsSlice'
 import { addMessage } from './features/messages/messagesSlice'
 import Notification from './components/Notification'
+import { buildApiUrl } from './config/api'
 
 const App = () => {
   const { user, isLoaded } = useUser()
@@ -46,9 +47,7 @@ const App = () => {
 
   useEffect(() => {
     if (user) {
-      const eventSource = new EventSource(
-        import.meta.env.VITE_BASEURL + '/api/message/' + user.id
-      )
+      const eventSource = new EventSource(buildApiUrl(`/api/message/${user.id}`))
 
       eventSource.onmessage = (event) => {
         const message = JSON.parse(event.data)
@@ -62,9 +61,13 @@ const App = () => {
         }
       }
 
+      eventSource.onerror = (error) => {
+        console.error('SSE connection failed', error)
+      }
+
       return () => eventSource.close()
     }
-  }, [user])
+  }, [user, dispatch])
 
   return (
     <>

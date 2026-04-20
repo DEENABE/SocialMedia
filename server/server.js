@@ -15,9 +15,22 @@ const app = express();
 await connectDB();
 
 app.use(express.json());
-app.use(cors(
-    'https://localhost:5173'
-));
+const allowedOrigins = [
+    'http://localhost:5173',
+    'https://localhost:5173',
+    process.env.CLIENT_URL,
+].filter(Boolean);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+}));
 app.use(clerkMiddleware());
 
 app.get('/', (req, res)=> res.send('Server is running'))
