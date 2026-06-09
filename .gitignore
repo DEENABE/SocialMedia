@@ -1,4 +1,14 @@
+# Env files
 .env
 .env.*
-node_modules
 server/.env
+client/.env
+
+# Node modules
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build files
+dist/
+build/
